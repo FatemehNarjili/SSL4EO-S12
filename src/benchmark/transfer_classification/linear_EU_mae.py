@@ -46,6 +46,7 @@ from sklearn.metrics import average_precision_score
 
 from torchgeo.models.vit import ViTLarge16_Weights, vit_large_patch16_224
 import torch
+import torch.nn as nn
 
 
 
@@ -271,6 +272,14 @@ def main(args):
     # for linear prob only
     # hack: revise model's head with BN
     model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+
+    # Initialize head parameters (e.g., Kaiming normal for weights, zeros for bias)
+    for m in model.head.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+
     # freeze all but the head
     for _, p in model.named_parameters():
         p.requires_grad = False
