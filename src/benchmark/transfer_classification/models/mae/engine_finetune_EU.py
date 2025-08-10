@@ -119,7 +119,8 @@ def evaluate(data_loader, model, device, criterion):
 
         # compute output
         #print(images.shape,images.dtype,target.shape,target.dtype)
-        with torch.cuda.amp.autocast():
+        # with torch.cuda.amp.autocast():
+        with  torch.amp.autocast('cuda'):
             output = model(images)
             loss = criterion(output, target)
 
@@ -130,8 +131,8 @@ def evaluate(data_loader, model, device, criterion):
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        metric_logger.meters['acc1'].update(acc1, n=batch_size)
+        metric_logger.meters['acc5'].update(acc5, n=batch_size)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
