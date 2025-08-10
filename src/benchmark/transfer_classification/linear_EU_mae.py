@@ -26,7 +26,7 @@ import torchvision.datasets as datasets
 import timm
 
 #assert timm.__version__ == "0.3.2" # version check
-from timm.models.layers import trunc_normal_
+from timm.layers import trunc_normal_
 
 import models.mae.util.misc as misc
 from models.mae.util.pos_embed import interpolate_pos_embed
@@ -162,14 +162,20 @@ def main(args):
 
 
     eurosat_dataset = EurosatDataset(root=args.data_path,normalize=False)
-
+    
+    targets = np.array(eurosat_dataset.targets)
     indices = np.arange(len(eurosat_dataset))
-    train_indices, test_indices = train_test_split(indices, train_size=0.8,stratify=eurosat_dataset.targets,random_state=args.seed)    
-  
+    train_indices, temp_indices = train_test_split(indices, train_size=0.6,stratify=targets,random_state=args.seed)   
+    test_indices, val_indices = train_test_split(temp_indices, train_size=0.5,stratify=targets[temp_indices],random_state=args.seed)
+
     dataset_train = Subset(eurosat_dataset, train_indices, train_transforms)
-    dataset_val = Subset(eurosat_dataset, test_indices, val_transforms)
-        
-        
+    dataset_val = Subset(eurosat_dataset, val_indices, val_transforms)
+    dataset_test = Subset(eurosat_dataset, test_indices, val_transforms)
+
+    print("Train dataset size: {}".format(len(dataset_train)))
+    print("Val dataset size: {}".format(len(dataset_val)))
+    print("Test dataset size: {}".format(len(dataset_test)))
+
     if args.train_frac is not None and args.train_frac<1:
         frac_indices = np.arange(len(dataset_train))
         sub_train_indices, sub_test_indices = train_test_split(frac_indices, train_size=train_frac, random_state=args.seed)

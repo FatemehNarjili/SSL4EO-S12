@@ -52,7 +52,7 @@ def train_one_epoch(model: torch.nn.Module, d_vae: torch.nn.Module,
             bool_masked_pos = bool_masked_pos.flatten(1).to(torch.bool)
             labels = input_ids[bool_masked_pos]
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             outputs = model(samples, bool_masked_pos=bool_masked_pos, return_all_tokens=False)
             loss = nn.CrossEntropyLoss()(input=outputs, target=labels)
 

@@ -88,7 +88,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             loss, output = train_class_batch(
                 model, samples, targets, criterion, bool_masked_pos)
         else:
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 loss, output = train_class_batch(
                     model, samples, targets, criterion, bool_masked_pos)
 
@@ -198,7 +198,7 @@ def evaluate(data_loader, model, device, metric='acc', padd=False, onehot=False)
         target = target.to(device, non_blocking=True)
 
         # compute output
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             output = model(images)
             loss = criterion(output, target)
         

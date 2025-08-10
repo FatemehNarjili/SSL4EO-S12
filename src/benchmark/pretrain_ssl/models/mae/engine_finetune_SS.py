@@ -57,7 +57,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             samples, targets = mixup_fn(samples, targets)
         
         #print(samples.shape,samples.dtype,targets.shape,targets.dtype)
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             outputs = model(samples)
             loss = criterion(outputs, torch.argmax(targets,axis=1).long())
 
@@ -119,7 +119,7 @@ def evaluate(data_loader, model, device, criterion):
 
         # compute output
         #print(images.shape,images.dtype,target.shape,target.dtype)
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             output = model(images)
             loss = criterion(output, torch.argmax(target,axis=1).long())
 

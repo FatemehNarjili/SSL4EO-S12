@@ -99,7 +99,7 @@ def train_one_epoch(model: torch.nn.Module, model_ema: torch.nn.Module, ema_star
             target_mask = bool_masked_pos.flatten().bool()
             targets = targets.reshape(-1, fsz)[target_mask]
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             outputs = model(samples, bool_masked_pos=bool_masked_pos, return_all_tokens=False)
 
         outputs = outputs.float()
