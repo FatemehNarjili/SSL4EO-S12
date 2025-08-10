@@ -197,12 +197,16 @@ def main(args):
                       'equal num of samples per-process.')
             sampler_val = torch.utils.data.DistributedSampler(
                 dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
+            sampler_test = torch.utils.data.DistributedSampler(
+                dataset_test, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
         else:
             sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+            sampler_test = torch.utils.data.SequentialSampler(dataset_test)
     else:
         global_rank = 0
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+        sampler_test = torch.utils.data.SequentialSampler(dataset_test)
 
     if global_rank == 0 and args.log_dir is not None and not args.eval:
         os.makedirs(args.log_dir, exist_ok=True)
@@ -226,11 +230,14 @@ def main(args):
         drop_last=False
     )
 
-    # model = models_vit.__dict__[args.model](
-    #     num_classes=args.nb_classes,
-    #     global_pool=args.global_pool,
-    #     in_chans=13
-    # )
+    data_loader_test = torch.utils.data.DataLoader(
+        dataset_test, sampler=sampler_test,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=False
+    )
+
     weights = ViTLarge16_Weights.SENTINEL2_ALL_MAE
     model = vit_large_patch16_224(weights=weights)
     model.head = torch.nn.Linear(in_features=1024, out_features=10, bias=True)
@@ -307,16 +314,18 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
     if args.eval:
-        test_stats = evaluate(data_loader_val, model, device, criterion)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        val_stats = evaluate(data_loader_val, model, device, criterion)
+        print(f"Accuracy of the network on the {len(dataset_val)} val images: {val_stats['acc1']:.1f}%")
         exit(0)
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
+
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
@@ -329,25 +338,24 @@ def main(args):
             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
             loss_scaler=loss_scaler, epoch="last")
 
-        # if epoch%5==0 or (epoch + 1 == args.epochs):
-        test_stats = evaluate(data_loader_val, model, device, criterion)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        val_stats = evaluate(data_loader_val, model, device, criterion)
+        print(f"Accuracy of the network on the {len(dataset_val)} val images: {val_stats['acc1']:.1f}%")
             
-        if test_stats["acc1"] > max_accuracy:
+        if val_stats["acc1"] > max_accuracy:
             misc.save_model(
             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
             loss_scaler=loss_scaler, epoch="best")
             
-        max_accuracy = max(max_accuracy, test_stats["acc1"])
+        max_accuracy = max(max_accuracy, val_stats["acc1"])
         print(f'Max accuracy: {max_accuracy:.2f}%')
 
         if log_writer is not None:
-            log_writer.add_scalar('perf/test_acc1', test_stats['acc1'], epoch)
-            log_writer.add_scalar('perf/test_acc5', test_stats['acc5'], epoch)
-            log_writer.add_scalar('perf/test_loss', test_stats['loss'], epoch)
+            log_writer.add_scalar('perf/val_acc1', val_stats['acc1'], epoch)
+            log_writer.add_scalar('perf/val_acc5', val_stats['acc5'], epoch)
+            log_writer.add_scalar('perf/val_loss', val_stats['loss'], epoch)
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        **{f'test_{k}': v for k, v in test_stats.items()},
+                        **{f'val_{k}': v for k, v in val_stats.items()},
                         'epoch': epoch,
                         'n_parameters': n_parameters}
 
@@ -361,6 +369,9 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
 
+    print("Test Results")
+    test_stats = evaluate(data_loader_test, model, device, criterion)
+    print(f"Accuracy of the network on the {len(dataset_test)} test images: {test_stats['acc1']:.1f}%")
 
 if __name__ == '__main__':
     args = get_args_parser()
