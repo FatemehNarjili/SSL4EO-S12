@@ -29,7 +29,6 @@ from sklearn.metrics import accuracy_score
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../..")))
 
-print(sys.path)
 
 from src.benchmark.transfer_classification.classification_metrics import Metrics_Micro
 
@@ -71,7 +70,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             samples, targets = mixup_fn(samples, targets)
         
         #print(samples.shape,samples.dtype,targets.shape,targets.dtype)
-        with  torch.amp.autocast('cuda'):
+        device =  "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        with  torch.amp.autocast(device):
             outputs = model(samples)
             loss = criterion(outputs, targets.long())
             train_metrics.y_pred.extend(torch.argmax(outputs, dim=1).cpu().numpy()) # Collect predictions
@@ -90,7 +90,12 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
-        torch.cuda.synchronize()
+        if device == "cuda":
+            torch.cuda.synchronize()
+        elif device == "mps":
+            torch.mps.synchronize()
+        elif device == "cpu":
+            pass
 
         metric_logger.update(loss=loss_value)
         min_lr = 10.
@@ -115,7 +120,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     precision = train_metrics.precision()
     recall = train_metrics.recall()
     f1 = train_metrics.f1()
-    roc_auc = train_metrics.roc_auc()
     confusion = train_metrics.confusion_matrix()
     accuracy = train_metrics.accuracy()
 
@@ -128,7 +132,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             "precision": precision,
             "recall": recall,
             "f1": f1,
-            "roc_auc": roc_auc,
             "confusion": confusion,
             "accuracy": accuracy,
             'loss': epoch_loss / len(data_loader)})  # Return average loss for the
@@ -139,7 +142,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 def evaluate(data_loader, model, device, criterion):
     #criterion = torch.nn.CrossEntropyLoss()
 
-    metric_logger = misc.Metric11Logger(delimiter="  ")
+    metric_logger = misc.MetricLogger(delimiter="  ")
     header = 'Test:'
 
     # switch to evaluation mode
@@ -160,7 +163,8 @@ def evaluate(data_loader, model, device, criterion):
         # compute output
         #print(images.shape,images.dtype,target.shape,target.dtype)
         # with torch.amp.autocast('cuda'):
-        with  torch.amp.autocast('cuda'):
+        device =  "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        with  torch.amp.autocast(device):
             output = model(images)
             loss = criterion(output, target)
 
@@ -188,7 +192,6 @@ def evaluate(data_loader, model, device, criterion):
             "precision": val_metrics.precision(),
             "recall": val_metrics.recall(),
             "f1": val_metrics.f1(),
-            "roc_auc": val_metrics.roc_auc(),
             "confusion": val_metrics.confusion_matrix(),
             "accuracy": val_metrics.accuracy(),
             'loss': val_loss / len(data_loader)})  # Return average loss for the

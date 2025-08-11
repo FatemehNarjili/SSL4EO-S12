@@ -15,9 +15,6 @@ class Metrics_Micro:
     def f1(self):
         return f1_score(self.y_true, self.y_pred, average=self.average)
 
-    def roc_auc(self):
-        return roc_auc_score(self.y_true, self.y_pred, average=self.average)
-
     def confusion_matrix(self):
         return confusion_matrix(self.y_true, self.y_pred) 
     

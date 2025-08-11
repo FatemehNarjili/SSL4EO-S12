@@ -298,7 +298,7 @@ def main_worker(gpu, ngpus_per_node, args):
         optimizer = torch.optim.AdamW(model.parameters(), args.lr,
                                 weight_decay=args.weight_decay)
         
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.amp.GradScaler('cuda')
     summary_writer = SummaryWriter() if args.rank == 0 else None
 
     # optionally resume from a checkpoint

@@ -136,8 +136,8 @@ def get_args_parser():
 def main(args):
     misc.init_distributed_mode(args)
 
-    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
-    print("{}".format(args).replace(', ', ',\n'))
+    # print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
+    # print("{}".format(args).replace(', ', ',\n'))
 
     device = torch.device(args.device)
 
@@ -259,7 +259,7 @@ def main(args):
 
         # load pre-trained model
         msg = model.load_state_dict(checkpoint_model, strict=False)
-        print(msg)
+        # print(msg)
 
         if args.global_pool:
             assert set(msg.missing_keys) == {'head.weight', 'head.bias', 'fc_norm.weight', 'fc_norm.bias'}
@@ -291,19 +291,19 @@ def main(args):
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print("Model = %s" % str(model_without_ddp))
-    print('number of params (M): %.2f' % (n_parameters / 1.e6))
+    # print("Model = %s" % str(model_without_ddp))
+    # print('number of params (M): %.2f' % (n_parameters / 1.e6))
 
     eff_batch_size = args.batch_size * args.accum_iter * args.world_size
     
     if args.lr is None:  # only base_lr is specified
         args.lr = args.blr * eff_batch_size / 256
 
-    print("base lr: %.2e" % (args.lr * 256 / eff_batch_size))
-    print("actual lr: %.2e" % args.lr)
+    # print("base lr: %.2e" % (args.lr * 256 / eff_batch_size))
+    # print("actual lr: %.2e" % args.lr)
 
-    print("accumulate grad iterations: %d" % args.accum_iter)
-    print("effective batch size: %d" % eff_batch_size)
+    # print("accumulate grad iterations: %d" % args.accum_iter)
+    # print("effective batch size: %d" % eff_batch_size)
 
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
@@ -313,12 +313,12 @@ def main(args):
     optimizer = torch.optim.SGD(model_without_ddp.head.parameters(), args.lr,
                                 momentum=0.9,
                                 weight_decay=0)
-    print(optimizer)
+    # print(optimizer)
     loss_scaler = NativeScaler()
 
     criterion = torch.nn.CrossEntropyLoss()
 
-    print("criterion = %s" % str(criterion))
+    # print("criterion = %s" % str(criterion))
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
@@ -374,10 +374,9 @@ def main(args):
         if args.output_dir and misc.is_main_process():
             if log_writer is not None:
                 log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
+            # with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+            #     f.write(json.dumps(log_stats) + "\n")
 
-        # Log the losses and metrics to TensorBoard
         writer.add_scalars('Loss', {
         'Train': train_stats['loss'],
         'Validation': val_stats['loss']
@@ -403,14 +402,10 @@ def main(args):
         'Validation': val_stats['f1']
         }, epoch)
 
-        writer.add_scalars('ROC_AUC', {
-        'Train': train_stats['roc_auc'],
-        'Validation': val_stats['roc_auc']
-        }, epoch)
-
         writer.add_scalar('Learning Rate', 
         optimizer.param_groups[0]['lr'], epoch)
 
+    
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
@@ -418,6 +413,7 @@ def main(args):
     print("Test Results")
     test_stats = evaluate(data_loader_test, model, device, criterion)
     print(f"Accuracy of the network on the {len(dataset_test)} test images: {test_stats['acc1']:.1f}%")
+
 
 if __name__ == '__main__':
     args = get_args_parser()
