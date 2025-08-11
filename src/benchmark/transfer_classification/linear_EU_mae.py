@@ -322,6 +322,7 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
+
     if args.eval:
         val_stats = evaluate(data_loader_val, model, device, criterion)
         print(f"Accuracy of the network on the {len(dataset_val)} val images: {val_stats['acc1']:.1f}%")
@@ -330,6 +331,8 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
+
+    writer  = SummaryWriter(log_dir=f"runs/training/{args.model}_{args.blr}lr")
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -373,6 +376,40 @@ def main(args):
                 log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
+
+        # Log the losses and metrics to TensorBoard
+        writer.add_scalars('Loss', {
+        'Train': train_stats['loss'],
+        'Validation': val_stats['loss']
+        }, epoch)
+
+        writer.add_scalars('Accuracy', {
+        'Train': train_stats['accuracy'],
+        'Validation': val_stats['accuracy']
+        }, epoch)
+
+        writer.add_scalars('Precision', {
+        'Train': train_stats['precision'],
+        'Validation': val_stats['precision']
+        }, epoch)
+
+        writer.add_scalars('Recall', {
+        'Train': train_stats['recall'],
+        'Validation': val_stats['recall']
+        }, epoch)
+
+        writer.add_scalars('f1', {
+        'Train': train_stats['f1'],
+        'Validation': val_stats['f1']
+        }, epoch)
+
+        writer.add_scalars('ROC_AUC', {
+        'Train': train_stats['roc_auc'],
+        'Validation': val_stats['roc_auc']
+        }, epoch)
+
+        writer.add_scalar('Learning Rate', 
+        optimizer.param_groups[0]['lr'], epoch)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
