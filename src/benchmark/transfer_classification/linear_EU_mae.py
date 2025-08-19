@@ -333,8 +333,23 @@ def main(args):
     max_accuracy = 0.0
 
     writer  = SummaryWriter(log_dir=f"runs/training/{args.model}_{args.blr}lr")
-
-    for epoch in range(args.start_epoch, args.epochs):
+    
+    start_epoch = args.start_epoch
+    checkpoint_path = os.path.join(os.path.abspath(args.output_dir), "checkpoint-last.pth")
+    if os.path.exists(checkpoint_path):
+        print("======================")
+        print("Loading checkpoint")
+        checkpoint = torch.load(checkpoint_path, weights_only=False, map_location=device)
+        checkpoint_model = checkpoint['model']
+        model.load_state_dict(checkpoint_model)
+        start_epoch = checkpoint["epoch"]
+        print("start_epoch:", start_epoch)
+        
+    
+    for epoch in range(start_epoch, args.epochs):
+        print("epoch: ", epoch)
+        if epoch == 0:
+            continue
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
 
@@ -348,7 +363,7 @@ def main(args):
 
         misc.save_model(
             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-            loss_scaler=loss_scaler, epoch="last")
+            loss_scaler=loss_scaler, epoch=epoch, epoch_name="last")
 
         val_stats = evaluate(data_loader_val, model, device, criterion)
         print(f"Accuracy of the network on the {len(dataset_val)} val images: {val_stats['acc1']:.1f}%")
@@ -356,7 +371,7 @@ def main(args):
         if val_stats["acc1"] > max_accuracy:
             misc.save_model(
             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-            loss_scaler=loss_scaler, epoch="best")
+            loss_scaler=loss_scaler, epoch=epoch, epoch_name="best")
             
         max_accuracy = max(max_accuracy, val_stats["acc1"])
         print(f'Max accuracy: {max_accuracy:.2f}%')
@@ -404,7 +419,7 @@ def main(args):
 
         writer.add_scalar('Learning Rate', 
         optimizer.param_groups[0]['lr'], epoch)
-
+        break
     
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
