@@ -30,7 +30,7 @@ from sklearn.metrics import accuracy_score
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../..")))
 
 
-from src.benchmark.transfer_classification.classification_metrics import Metrics_Micro
+from src.benchmark.transfer_classification.classification_metrics import ClassificationMetrics
 
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
@@ -46,7 +46,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     accum_iter = args.accum_iter
 
-    train_metrics = Metrics_Micro([], []) # Collect true labels and predictions
+    train_metrics = ClassificationMetrics([], []) # Collect true labels and predictions
     epoch_loss = 0.0
     
 
@@ -117,11 +117,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     # Calculate and log metrics
     
-    precision = train_metrics.precision()
+    precision = train_metrics.calculate_precision()
     recall = train_metrics.recall()
-    f1 = train_metrics.f1()
+    f1 = train_metrics.calculate_f1()
     confusion = train_metrics.confusion_matrix()
-    accuracy = train_metrics.accuracy()
+    accuracy = train_metrics.calculate_accuracy()
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -148,7 +148,7 @@ def evaluate(data_loader, model, device, criterion):
     # switch to evaluation mode
     model.eval()
 
-    val_metrics = Metrics_Micro([], []) # collect true labels and predictions
+    val_metrics = ClassificationMetrics([], []) # collect true labels and predictions
     val_loss = 0.0
 
     for batch in metric_logger.log_every(data_loader, 10, header):
@@ -189,11 +189,11 @@ def evaluate(data_loader, model, device, criterion):
 
     result = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
     result.update({ 
-            "precision": val_metrics.precision(),
+            "precision": val_metrics.calculate_precision(),
             "recall": val_metrics.recall(),
-            "f1": val_metrics.f1(),
+            "f1": val_metrics.calculate_f1(),
             "confusion": val_metrics.confusion_matrix(),
-            "accuracy": val_metrics.accuracy(),
+            "accuracy": val_metrics.calculate_accuracy(),
             'loss': val_loss / len(data_loader)})  # Return average loss for the
 
     return result
