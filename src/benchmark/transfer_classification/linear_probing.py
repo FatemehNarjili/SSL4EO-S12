@@ -37,7 +37,7 @@ def get_args_parser():
     parser.add_argument('--nb_classes', default=10, type=int)
 
     parser.add_argument('--output_dir', default='./output_dir')
-    parser.add_argument('--log_dir', default='./output_dir')
+    parser.add_argument('--log_dir', default='./log_dir')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='')
