@@ -42,7 +42,6 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='')
 
-    parser.add_argument('--start_epoch', default=0, type=int, metavar='N')
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--num_workers', default=10, type=int)
     parser.add_argument('--pin_mem', action='store_true')
@@ -165,7 +164,6 @@ def main(args):
         num_epochs=args.epochs,
         patience=10,
         log_dir=args.log_dir,
-        start_epoch=args.start_epoch
     ).run()
 
     # Test
