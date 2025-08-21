@@ -162,7 +162,7 @@ def main(args):
         device=device,
         saved_models_dir=args.output_dir,
         num_epochs=args.epochs,
-        patience=10,
+        patience=100,
         log_dir=args.log_dir,
     ).run()
 
