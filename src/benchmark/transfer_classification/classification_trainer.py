@@ -59,7 +59,7 @@ class ClassificationTrainer:
 
             self.train_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy())
 
-            self.train_metrics.loss += loss.item()
+            self.train_metrics.total_losses += loss.item()
 
             # Backward pass and optimization
             self.optimizer.zero_grad()
@@ -91,7 +91,7 @@ class ClassificationTrainer:
             # Forward pass
             output = self.model(image)
             loss = self.criterion(output, label)
-            self.val_metrics.loss += loss.item()
+            self.val_metrics.total_losses += loss.item()
 
             self.val_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy())
 
