@@ -22,7 +22,6 @@ class ClassificationTrainer:
 
         self.model_name = self.model.__class__.__name__
 
-                
         self.state_manager = TrainingStateManager()
         self.best_f1 = self.state_manager.get_state_value("best_f1", 0.0)
         self.epochs_no_improve = 0
@@ -30,8 +29,13 @@ class ClassificationTrainer:
         self.train_metrics = ClassificationMetrics(num_epochs)
         self.val_metrics = ClassificationMetrics(num_epochs)
 
-        self.plotter = Plotter(num_epochs, self.model_name,
-                               self.train_metrics, self.val_metrics, log_dir)
+        self.plotter = Plotter(
+            num_epochs, 
+            self.model_name,
+            self.train_metrics, 
+            self.val_metrics, 
+            log_dir
+        )
         
         # Precalculate batch counts for efficiency
         self.train_batch_count = len(train_dl)
@@ -45,7 +49,7 @@ class ClassificationTrainer:
 
         for image, label in tqdm(self.train_dl, desc=f"Training Epoch {epoch_index + 1}"):
             image = image.float().to(self.device)
-            label = label.float().to(self.device)
+            label = label.long().to(self.device)   # <-- FIXED
 
             self.train_metrics.y_true.extend(label.cpu().numpy())
 
@@ -53,7 +57,7 @@ class ClassificationTrainer:
             output = self.model(image)
             loss = self.criterion(output, label)
 
-            self.train_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy()) # Collect predictions
+            self.train_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy())
 
             self.train_metrics.loss += loss.item()
 
@@ -66,29 +70,30 @@ class ClassificationTrainer:
         self.train_metrics.update(epoch_index, loss, accuracy, f1, precision, recall)
 
         print(
-            f"Train Metrics - Epoch {epoch_index + 1}: loss={loss:.4f}, accuracy={accuracy:.4f}, f1={f1:.4f}, precision={precision:.4f}, recall={recall:.4f}")
+            f"Train Metrics - Epoch {epoch_index + 1}: "
+            f"loss={loss:.4f}, accuracy={accuracy:.4f}, f1={f1:.4f}, "
+            f"precision={precision:.4f}, recall={recall:.4f}"
+        )
 
         return loss, accuracy, f1, precision, recall
 
     @torch.no_grad()
     def evaluate(self, epoch_index):
-
         self.model.eval()
         self.val_metrics.reset()
 
         for image, label in tqdm(self.val_dl, desc=f"Evaluating Epoch {epoch_index + 1}"):
             image = image.float().to(self.device)
-            label = label.float().to(self.device)
+            label = label.long().to(self.device)   # <-- FIXED
 
-            self.val_metrics.y_true.extend(label.cpu().numpy())  # Collect true labels
+            self.val_metrics.y_true.extend(label.cpu().numpy())
 
             # Forward pass
             output = self.model(image)
             loss = self.criterion(output, label)
-            self.val_metrics.loss += loss.item()  # Accumulate loss for the validation set
+            self.val_metrics.loss += loss.item()
 
-            self.val_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy()) # Collect predictions
-
+            self.val_metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy())
 
         f1, precision, recall, accuracy, loss = self.val_metrics.calculate(self.val_batch_count)
         self.val_metrics.update(epoch_index, loss, accuracy, f1, precision, recall)
@@ -96,7 +101,10 @@ class ClassificationTrainer:
         self.current_val_f1 = f1
 
         print(
-            f"Val Metrics   - Epoch {epoch_index + 1}: loss={loss:.4f}, accuracy={accuracy:.4f}, f1={f1:.4f}, precision={precision:.4f}, recall={recall:.4f}")
+            f"Val Metrics   - Epoch {epoch_index + 1}: "
+            f"loss={loss:.4f}, accuracy={accuracy:.4f}, f1={f1:.4f}, "
+            f"precision={precision:.4f}, recall={recall:.4f}"
+        )
 
         return loss, accuracy, f1, precision, recall
     
