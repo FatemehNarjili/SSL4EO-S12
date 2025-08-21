@@ -27,14 +27,12 @@ class ClassificationTester:
 
         for image, label in tqdm(self.test_dl):
             image = image.float().to(self.device)
-            label = label.float().to(self.device)
+            label = label.long().to(self.device)   # <-- FIXED
 
             output = self.model(image)
 
             self.metrics.y_true.extend(label.cpu().numpy())  # Collect true labels
-
-            self.metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy()) # Collect predictions
-
+            self.metrics.y_pred.extend(torch.argmax(output, dim=1).cpu().numpy())  # Collect predictions
 
         f1, precision, recall, accuracy, loss = self.metrics.calculate(self.batch_count)
 
