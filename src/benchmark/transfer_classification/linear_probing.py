@@ -1,10 +1,12 @@
+import os
+import argparse
+import random
+from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import argparse
-import numpy as np
-import random
-from pathlib import Path
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 from torchvision.transforms import Normalize
@@ -12,6 +14,7 @@ from torch.utils import data
 
 from torchgeo.models.vit import ViTLarge16_Weights, vit_large_patch16_224
 from torchgeo.datasets.eurosat import EuroSAT
+
 from classification_trainer import ClassificationTrainer
 from classification_tester import ClassificationTester
 
@@ -26,7 +29,7 @@ def get_args_parser():
     parser.add_argument('--model', default='vit_large_patch16', type=str)
 
     # Optimizer parameters
-    parser.add_argument('--weight_decay', type=float, default=0)
+    parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--lr', type=float, default=None, metavar='LR')
 
     # * Finetuning params
@@ -50,7 +53,7 @@ def get_args_parser():
     return parser
 
 
-# Band statistics for normalization
+# EuroSAT (Sentinel-2) band statistics for normalization
 BAND_STATS = {
     'mean': [
         1353.72696296, 1117.20222222, 1041.8842963, 946.554, 1199.18896296,
@@ -121,18 +124,21 @@ def main(args):
 
     # Loss & Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
+    # Fallback LR if not provided
+    lr = args.lr if args.lr is not None else 1e-3
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=args.weight_decay)
 
     # Transforms
+    # NOTE: EuroSAT from torchgeo returns tensors; normalization uses dataset stats (not [0,1] image stats).
     transform_train = DictTransform(transforms.Compose([
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
-        transforms.Normalize(mean=BAND_STATS['mean'], std=BAND_STATS['std']),
+        Normalize(mean=BAND_STATS['mean'], std=BAND_STATS['std']),
     ]))
     transform_val = DictTransform(transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
-        transforms.Normalize(mean=BAND_STATS['mean'], std=BAND_STATS['std']),
+        Normalize(mean=BAND_STATS['mean'], std=BAND_STATS['std']),
     ]))
 
     # Datasets
@@ -141,15 +147,18 @@ def main(args):
     test_dataset  = EuroSAT(root=args.data_path, split='test',  transforms=transform_val,   download=True)
 
     # Loaders (with collate_fn!)
-    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
-                                   num_workers=args.num_workers, pin_memory=args.pin_mem,
-                                   collate_fn=collate_fn)
-    val_loader = data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
-                                 num_workers=args.num_workers, pin_memory=args.pin_mem,
-                                 collate_fn=collate_fn)
-    test_loader = data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
-                                  num_workers=args.num_workers, pin_memory=args.pin_mem,
-                                  collate_fn=collate_fn)
+    train_loader = data.DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.num_workers, pin_memory=args.pin_mem, collate_fn=collate_fn
+    )
+    val_loader = data.DataLoader(
+        val_dataset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers, pin_memory=args.pin_mem, collate_fn=collate_fn
+    )
+    test_loader = data.DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers, pin_memory=args.pin_mem, collate_fn=collate_fn
+    )
 
     # Train
     ClassificationTrainer(
@@ -166,11 +175,12 @@ def main(args):
         log_dir=args.log_dir,
     ).run()
 
-    # Test
+    # Test (load BEST checkpoint saved in args.output_dir)
     ClassificationTester(
         model=model,
         test_dl=test_loader,
-        device=device
+        device=device,
+        saved_models_dir=args.output_dir,
     ).run()
 
 
